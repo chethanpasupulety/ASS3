@@ -250,7 +250,7 @@ class Record{
 public:
     vector<Attr *> attrptr;
 public:
-    Record(int n);
+    Record();
     Record(const vector<Attr*>& attrs);
     int size() const;
     void pushAttr(Attr *attr);
@@ -267,11 +267,15 @@ public:
 };
 
 
-Record::Record(int n){
+// Record::Record(int n){
     
-}
+// }
 
 // Constructor
+
+Record::Record(){}
+
+
 Record::Record(const vector<Attr *> &attrs)
 {
     attrptr = attrs;
@@ -402,13 +406,13 @@ public:
     void removeRecord(const int i);
     list<Record *> getRecords();
     void printrelation();
-    Relation *union_(Relation *r1, Relation *r2);
-    Relation *difference(Relation *r1, Relation *r2);
-    Relation *cartesianProduct(Relation *r1, Relation *r2);
-    Relation *projection(Relation *r1, list<string> projectattrs);
-    Relation *selection(Relation *r1, DNFformula *f);
-    Relation *rename_(Relation *r1, string s1, string s2);
-    Relation *naturalJoin(Relation *r1, Relation *r2, list<string> joinattrs);
+    friend Relation *union_(Relation *r1, Relation *r2);
+    friend Relation *difference(Relation *r1, Relation *r2);
+    friend Relation *cartesianProduct(Relation *r1, Relation *r2);
+    friend Relation *projection(Relation *r1, list<string> &projectattrs);
+    // Relation *selection(Relation *r1, DNFformula *f);
+    // Relation *rename_(Relation *r1, string s1, string s2);
+    // Relation *naturalJoin(Relation *r1, Relation *r2, list<string> joinattrs);
     friend ostream &operator<<(ostream &out, const Relation &r);
 };
 
@@ -510,6 +514,192 @@ void Relation::printrelation(){
     for(auto &it:recs_) cout<<(*it)<<endl;
 }
 
+// 1. Union: All records of both R1 and R2.
+Relation* union_(Relation *R1, Relation *R2)
+{ // Check if the schemas are the same
+    if (R1->getAttrNames() != R2->getAttrNames())
+    {
+        cerr << "Error: Cannot perform union operation on relations with different schemas\n";
+        return nullptr;
+    }
+
+    Relation *result = new Relation();
+    result->setName("Union ("+R1->getName() + " , "+ R2->getName()+")"); // Use the name of the first relation
+
+    // Add attribute names and indices
+    result->setAttrNames(R1->getAttrNames());
+    result->setAttrInds(R1->getAttrInds());
+
+    // Add records from R1
+    for (Record *rec : R1->getRecords())
+    {
+        result->addRecord(new Record(*rec));
+    }
+
+    // Add records from R2 that are not already in R1
+    for (Record *rec : R2->getRecords())
+    {
+        bool found = false;
+        for (Record *r : result->getRecords())
+        {
+            if (*r == *rec)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            result->addRecord(new Record(*rec));
+        }
+    }
+    return result;
+}
+
+// 2. Difference: Records in R1 but not in R2.
+Relation* difference(Relation *R1, Relation *R2)
+{ // Check if R1 and R2 have the same schema
+    if (R1->getAttrNames() != R2->getAttrNames() || R1->getAttrInds() != R2->getAttrInds())
+    {
+        cout << "Error: schemas of R1 and R2 are not the same." << endl;
+        return nullptr;
+    }
+
+    // Create a new relation with the same schema as R1 and R2
+    vector<string> attrnames = R1->getAttrNames();
+    vector<int> attrinds = R1->getAttrInds();
+    string name = "Difference ("+R1->getName() + " , "+ R2->getName()+")";
+    Relation *result = new Relation(name, attrnames, attrinds);
+
+    // Add records from R1 that are not in R2
+    for (Record *rec : R1->getRecords())
+    {
+        bool found = false;
+        for (Record *r : R2->getRecords())
+        {
+            if (*r == *rec)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            result->addRecord(new Record(*rec));
+        }
+    }
+
+    return result;
+}
+
+Relation* cartesianProduct(Relation *r1, Relation *r2)
+{
+    // Create a new relation
+    Relation *res = new Relation();
+
+    // Set the name of the new relation to the concatenation of the names of r1 and r2
+    res->setName("CartesianProduct ("+r1->getName() + " , "+ r2->getName()+")");
+
+    // Set the attribute names and indices of the new relation
+    vector<string> attrnames;
+    vector<int> attrinds;
+    for (int i = 0; i < r1->nattrs(); i++)
+    {
+        attrnames.push_back(r1->getAttrNames()[i]);
+        attrinds.push_back(i);
+    }
+    for (int i = 0; i < r2->nattrs(); i++)
+    {
+        attrnames.push_back(r2->getAttrNames()[i]);
+        attrinds.push_back(i + r1->nattrs());
+    }
+    res->setAttrNames(attrnames);
+    res->setAttrInds(attrinds);
+
+    // Add the cartesian product of the records of r1 and r2 to the new relation
+    for (auto r1rec : r1->getRecords())
+    {
+        for (auto r2rec : r2->getRecords())
+        {
+            vector<Attr *> attrs;
+            for (auto attr : r1rec->getAttr())
+            {
+                attrs.push_back(attr);
+            }
+            for (auto attr : r2rec->getAttr())
+            {
+                attrs.push_back(attr);
+            }
+            Record *rec = new Record(attrs);
+            res->addRecord(rec);
+        }
+    }
+
+    return res;
+}
+
+// 4. Projection: New relation with a subset of columns.
+Relation* projection(Relation *r1, list<string> &projectattrs)
+{
+        int i;
+    vector<int> projIndices;
+    for (auto attrName : projectattrs)
+    {
+        i=0;
+        // auto it = find(r1->getAttrNames().begin(), r1->getAttrNames().end(), attrName);
+        for(auto it:r1->getAttrNames()){
+            if(attrName==r1->getAttrNames()[i]) break;
+            else i++;
+        }
+        if(i==r1->getAttrNames().size()) {
+             cerr << "Error: Attribute " << attrName << " not found in relation.\n";
+            return nullptr;
+
+        }
+       int index=i;
+        // cout<<*it<<endl;
+        // if (it == r1->getAttrNames().end())
+        // {
+        //     cerr << "Error: Attribute " << attrName << " not found in relation.\n";
+        //     return nullptr;
+        // }
+        // int index = distance((r1->getAttrNames()).begin(), it);
+        // cout<<"index found"<<index<<endl;
+        projIndices.push_back(index);
+    }
+
+    vector<string> projAttrNames;
+    for (auto index : projIndices)
+    {
+        cout<<(r1->getAttrNames())[index]<<endl;
+        projAttrNames.push_back((r1->getAttrNames())[index]);
+    }
+
+    vector<int> projAttrInds;
+    for (auto index : projIndices)
+    {
+        projAttrInds.push_back(r1->getAttrInds()[index]);
+    }
+
+    Relation *projRelation = new Relation("Projection("+r1->getName()+")", projAttrNames, projAttrInds);
+
+     vector<Attr *> projAttrs;
+    for (auto rec : r1->getRecords())
+    {
+        // vector<Attr *> projAttrs;
+        for (auto index : projIndices)
+        {
+            projAttrs.push_back(rec->getAttrbyindex(index));
+        }
+        projRelation->addRecord(new Record(projAttrs));
+        projAttrs.clear();
+    }
+
+    return projRelation;
+}
+
+
+
 int main(){
     IntAttr *a=new IntAttr(1);
     FloatAttr *c=new FloatAttr(80.5);
@@ -519,7 +709,17 @@ int main(){
     FloatAttr *c1=new FloatAttr(20.2);
     StringAttr *b1=new StringAttr("doggy");
 
-     vector <Attr*> atr;
+
+       IntAttr *a2=new IntAttr(1);
+    FloatAttr *c2=new FloatAttr(80.5);
+    StringAttr *b2=new StringAttr("harsha");
+
+    IntAttr *a3=new IntAttr(2);
+    FloatAttr *c3=new FloatAttr(50);
+    StringAttr *b3=new StringAttr("kurma");
+
+
+ vector <Attr*> atr;
     vector <Attr*> atr1;
     atr1.push_back(a1);
     atr.push_back(a);
@@ -543,7 +743,7 @@ int main(){
     weight.addAttr("ID");
     weight.addAttr("Name");
     weight.addAttr("Weight");
-    weight.addAttr("height");
+    // weight.addAttr("height");
 
     weight.addAttrInd(0);
     weight.addAttrInd(1);
@@ -551,19 +751,80 @@ int main(){
 
     weight.addRecord(&r);
     weight.addRecord(&r1);
-    weight.setName("WEIGHT");
+    weight.setName("WEIGHT1");
 
-   for(auto &it: weight.recs_){
-    float r;
-     cout<<"enter height attr:"; cin>>r;
-        it->pushAttr(new FloatAttr(r));
-        // it->removeAttr(0);
-   }
+//    for(auto &it: weight.recs_){
+//     float r;
+//      cout<<"enter height attr:"; cin>>r;
+//         it->pushAttr(new FloatAttr(r));
+//         // it->removeAttr(0);
+//    }
 
-    cout<<"Relation: "<<weight.getName()<<endl;
+
+Record *l1=new Record();
+l1->attrptr.push_back(a2);
+l1->attrptr.push_back(b2);
+l1->attrptr.push_back(c2);
+
+Record *l2=new Record();
+l2->attrptr.push_back(a3);
+l2->attrptr.push_back(b3);
+l2->attrptr.push_back(c3);
+
+
+
+
+
+ Relation *R=new Relation();
+
+    R->setAttrNames(weight.getAttrNames());
+    R->setAttrInds(weight.getAttrInds());
+    // R->attrnames_.pop_back();
+    R->addRecord(l1);
+    R->addRecord(l2);
+    R->setName("WEIGHT2");
+
+
+     cout<<"Relation: "<<weight.getName()<<endl;
     cout<<"No of attributes:"<<weight.nattrs()<<endl;
     cout<<"No of recs:"<<weight.nrecs()<<endl;
 
     weight.printrelation();
+
+        cout<<endl<<endl;
+
+    
+
+   cout<<"Relation: "<<R->getName()<<endl;
+    cout<<"No of attributes:"<<R->nattrs()<<endl;
+    cout<<"No of recs:"<<R->nrecs()<<endl;
+
+    R->printrelation();
+  cout<<endl<<endl;
+    // Relation *R2=cartesianProduct(&weight,R);
+    // cout<<"Relation: "<<R2->getName()<<endl;
+    // cout<<"No of attributes:"<<R2->nattrs()<<endl;
+    // cout<<"No of recs:"<<R2->nrecs()<<endl;
+
+    // R2->printrelation();
+
+    // for(auto &it:R2->getAttrInds()){
+    //     cout<<it;
+    // }
+
+
+//     list <string> L;
+//     L.push_back("Name");
+//     L.push_back("ID");
+//     // cout<<"\ndog\n";
+//     Relation *R3=projection(R,L);
+//      cout<<"Relation: "<<R3->getName()<<endl;
+//     cout<<"No of attributes:"<<R3->nattrs()<<endl;
+//     cout<<"No of recs:"<<R3->nrecs()<<endl;
+
+//     R3->printrelation();
+//   cout<<endl<<endl;
+
+
 
 }
