@@ -231,7 +231,7 @@ FloatAttr:: FloatAttr(float value,string d) : value_(value),Attr(d) {}
     //     return new FloatAttr(*this);  // create a new object with the same value
     // }
 
-//    FloatAttr :: ~FloatAttr(){}
+//
 
 
 
