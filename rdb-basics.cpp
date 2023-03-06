@@ -217,7 +217,7 @@ Relation* union_(Relation *R1, Relation *R2)
     if (R1->getAttrNames() != R2->getAttrNames())
     {
         cerr << "Error: Cannot perform union operation on relations with different schemas\n";
-        return nullptr;
+        return NULL;
     }
 
     Relation *result = new Relation();
@@ -261,7 +261,7 @@ Relation* difference(Relation *R1, Relation *R2)
     if (R1->getAttrNames() != R2->getAttrNames() || R1->getAttrInds() != R2->getAttrInds())
     {
         cout << "Error: schemas of R1 and R2 are not the same." << endl;
-        return nullptr;
+        return NULL;
     }
 
     // Create a new relation with the same schema as R1 and R2
@@ -355,7 +355,7 @@ Relation* projection(Relation *r1, list<string> &projectattrs)
         }
         if(i==r1->getAttrNames().size()) {
              cerr << "Error: Attribute " << attrName << " not found in relation.\n";
-            return nullptr;
+            return NULL;
 
         }
        int index=i;
@@ -363,7 +363,7 @@ Relation* projection(Relation *r1, list<string> &projectattrs)
         // if (it == r1->getAttrNames().end())
         // {
         //     cerr << "Error: Attribute " << attrName << " not found in relation.\n";
-        //     return nullptr;
+        //     return NULL;
         // }
         // int index = distance((r1->getAttrNames()).begin(), it);
         // cout<<"index found"<<index<<endl;
