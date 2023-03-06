@@ -3,10 +3,11 @@ using namespace std;
 // #include"rdb.h"
 
 class Attr
-{public: string dtype;
+{protected: string dtype;
 public:
     // Base class for attributes
      Attr(string s):dtype(s){}
+     string getvalue()const{return dtype;}
      virtual void printattritube()=0;
     virtual bool operator==(const Attr &right) const = 0;
     virtual bool operator!=(const Attr &right) const = 0;
@@ -24,12 +25,14 @@ public:
 // Derived class for integer attributes
 class IntAttr : public Attr
 {
-public:
+private:
     int value_;
 public:
     IntAttr(int value,string d="int") : value_(value), Attr(d) {}
 
     void printattritube(){cout<<value_;}
+
+    int getvalue()const {return(value_);}
 
     bool operator==(const Attr &right) const override
     {
@@ -90,12 +93,14 @@ public:
 // Derived class for string attributes
 class StringAttr : public Attr
 {
-public:
+private:
     string value_;
 public:
     StringAttr(string value,string d="string") : value_(value),Attr(d) {}
     
     void printattritube(){cout<<value_;}
+
+    string getvalue()const {return value_;}
 
      bool operator==(const Attr &right) const override
     {
@@ -156,13 +161,14 @@ public:
 // Derived class for float attributes
 class FloatAttr : public Attr
 {
-public:
+private:
     float value_;
 public:
     FloatAttr(float value,string d="float") : value_(value),Attr(d) {}
 
     void printattritube(){cout<<value_;}
 
+    float getvalue() const{return value_;}
 
     bool operator==(const Attr &right) const override
     {
@@ -220,17 +226,17 @@ public:
 };
 
      ostream& operator<< (ostream& os,const IntAttr &a)  {
-        os << a.value_;
+        os << a.getvalue();
         return os;
     }
 
        ostream& operator<< (ostream& os,const StringAttr &a)  {
-        os << a.value_;
+        os <<a.getvalue();
         return os;
     }
 
        ostream& operator<< (ostream& os,const FloatAttr &a)  {
-        os << a.value_;
+        os <<a.getvalue();
         return os;
     }
 
@@ -238,16 +244,16 @@ public:
 ostream& operator<<(ostream &os, Attr* attr){
    
 
-         if(attr->dtype=="int") {IntAttr* p1=dynamic_cast<IntAttr*>(attr);os<<p1->value_;}
-    else if(attr->dtype=="float"){ FloatAttr* p1=dynamic_cast<FloatAttr*>(attr);os<<p1->value_;}
-    else { StringAttr* p1=dynamic_cast <StringAttr*> (attr);os<<p1->value_;}
+         if(attr->dtype=="int") {IntAttr* p1=dynamic_cast<IntAttr*>(attr);os<<p1->getvalue();}
+    else if(attr->dtype=="float"){ FloatAttr* p1=dynamic_cast<FloatAttr*>(attr);os<<p1->getvalue();}
+    else { StringAttr* p1=dynamic_cast <StringAttr*> (attr);os<<p1->getvalue();}
     return os;
 
 }
 
 
 class Record{
-public:
+private:
     vector<Attr *> attrptr;
 public:
     Record();
@@ -260,7 +266,7 @@ public:
     Attr* getAttrbyindex(const int i);
     void setAttr(const int i, Attr *attr);
     bool operator==(const Record &right) const;
-    // friend ostream& operator<<(ostream &os, const Record& record) ;
+     friend ostream& operator<<(ostream &os, const Record& record) ;
     void printrecord();
     ~Record();
     friend class Relation;
@@ -382,7 +388,7 @@ struct DNFformula
 
 
 class Relation{
-public:
+private:
     int nattrs_, nrecs_;
     vector<string> attrnames_;
     vector<int> attrinds_;
@@ -411,7 +417,7 @@ public:
     friend Relation *cartesianProduct(Relation *r1, Relation *r2);
     friend Relation *projection(Relation *r1, list<string> &projectattrs);
     // Relation *selection(Relation *r1, DNFformula *f);
-    // Relation *rename_(Relation *r1, string s1, string s2);
+    friend Relation *rename_(Relation *r1, string s1, string s2);
     // Relation *naturalJoin(Relation *r1, Relation *r2, list<string> joinattrs);
     friend ostream &operator<<(ostream &out, const Relation &r);
 };
@@ -698,7 +704,20 @@ Relation* projection(Relation *r1, list<string> &projectattrs)
     return projRelation;
 }
 
-
+// 6. Rename: rename an attribute in schema
+Relation* rename_(Relation *r1, string s1, string s2)
+{
+    vector<string> attrnames = r1->getAttrNames();
+    for (int i = 0; i < attrnames.size(); i++)
+    {
+        if (attrnames[i] == s1)
+        {
+            attrnames[i] = s2;
+        }
+    }
+    r1->setAttrNames(attrnames);
+    return r1;
+}
 
 int main(){
     IntAttr *a=new IntAttr(1);
@@ -710,16 +729,16 @@ int main(){
     StringAttr *b1=new StringAttr("doggy");
 
 
-       IntAttr *a2=new IntAttr(1);
+       IntAttr *a2=new IntAttr(3);
     FloatAttr *c2=new FloatAttr(80.5);
     StringAttr *b2=new StringAttr("harsha");
 
-    IntAttr *a3=new IntAttr(2);
+    IntAttr *a3=new IntAttr(4);
     FloatAttr *c3=new FloatAttr(50);
     StringAttr *b3=new StringAttr("kurma");
 
 
- vector <Attr*> atr;
+     vector <Attr*> atr;
     vector <Attr*> atr1;
     atr1.push_back(a1);
     atr.push_back(a);
@@ -732,13 +751,6 @@ int main(){
     r1.pushAttr(b1);
     r1.pushAttr(c1);
    
-   
-    // cout<<r<<endl;
-    // cout<<r1<<endl;
-   
-
-  
-    
     Relation weight;
     weight.addAttr("ID");
     weight.addAttr("Name");
@@ -761,21 +773,25 @@ int main(){
 //    }
 
 
-Record *l1=new Record();
-l1->attrptr.push_back(a2);
-l1->attrptr.push_back(b2);
-l1->attrptr.push_back(c2);
-
-Record *l2=new Record();
-l2->attrptr.push_back(a3);
-l2->attrptr.push_back(b3);
-l2->attrptr.push_back(c3);
 
 
+ atr1.clear();
+    atr.clear();
+
+atr1.push_back(a2);
+atr.push_back(a3);
+
+Record *l1=new Record(atr1);
+
+l1->pushAttr(b2);
+l1->pushAttr(c2);
 
 
+Record *l2=new Record(atr);
+l2->pushAttr(b3);
+l2->pushAttr(c3);
 
- Relation *R=new Relation();
+Relation *R=new Relation();
 
     R->setAttrNames(weight.getAttrNames());
     R->setAttrInds(weight.getAttrInds());
@@ -784,7 +800,7 @@ l2->attrptr.push_back(c3);
     R->addRecord(l2);
     R->setName("WEIGHT2");
 
-
+    //printing 1st relation
      cout<<"Relation: "<<weight.getName()<<endl;
     cout<<"No of attributes:"<<weight.nattrs()<<endl;
     cout<<"No of recs:"<<weight.nrecs()<<endl;
@@ -794,7 +810,7 @@ l2->attrptr.push_back(c3);
         cout<<endl<<endl;
 
     
-
+    //printing 2nd relation
    cout<<"Relation: "<<R->getName()<<endl;
     cout<<"No of attributes:"<<R->nattrs()<<endl;
     cout<<"No of recs:"<<R->nrecs()<<endl;
@@ -815,16 +831,14 @@ l2->attrptr.push_back(c3);
 
 //     list <string> L;
 //     L.push_back("Name");
-//     L.push_back("ID");
+//     L.push_back("weight");
 //     // cout<<"\ndog\n";
-//     Relation *R3=projection(R,L);
-//      cout<<"Relation: "<<R3->getName()<<endl;
-//     cout<<"No of attributes:"<<R3->nattrs()<<endl;
-//     cout<<"No of recs:"<<R3->nrecs()<<endl;
+//      R2=projection(R2,L);
+//      cout<<"Relation: "<<R2->getName()<<endl;
+//     cout<<"No of attributes:"<<R2->nattrs()<<endl;
+//     cout<<"No of recs:"<<R2->nrecs()<<endl;
 
-//     R3->printrelation();
+//     R2->printrelation();
 //   cout<<endl<<endl;
-
-
 
 }
